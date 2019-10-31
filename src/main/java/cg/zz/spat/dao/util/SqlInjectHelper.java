@@ -24,6 +24,7 @@ public final class SqlInjectHelper {
 	static {
 		fullPatternSql = null;
         simplePatternSql = null;
+        //这些应该要写入配置文件中最好了
         keyList.add(new SqlKey("sp_", "ｓｐ_", "sp_", true));
         keyList.add(new SqlKey("xp_", "ｘｐ＿", "xp_", true));
         keyList.add(new SqlKey("0x", "０ｘ", "0x", true));
@@ -52,27 +53,46 @@ public final class SqlInjectHelper {
         StringBuffer sbFullKey = new StringBuffer();
         StringBuffer sbSimpleKey = new StringBuffer();
         for (SqlKey key : keyList) {
+        	//这里简单的过滤是将危险的SQL给替换掉
             if (key.isSerious) {
                 sbSimpleKey.append("|");
+                //右侧的表达式开启忽略大小写模式
                 sbSimpleKey.append("(?i)");
                 sbSimpleKey.append(key.getPattern());
             }
+            
+            //这里是添加了一些select from where '号等给替换掉
             sbFullKey.append("|");
+            //右侧的表达式开启忽略大小写模式
             sbFullKey.append("(?i)");
             sbFullKey.append(key.getPattern());
+            
+            //维护key和替换后字符的映射关系，下面filterSql会使用到
             mapKeyWord.put(key.getKey(), key.getReplace());
+            //对于有强迫症的人来说，替换为Set不是更好。。。
             mapSqlKey.put(key.getKey(), key);
         }
         sbFullKey.replace(0, 1, "");
         sbSimpleKey.replace(0, 1, "");
+        //将拼接的正则编译位Pattern
         fullPatternSql = Pattern.compile(sbFullKey.toString(), 2);
         simplePatternSql = Pattern.compile(sbSimpleKey.toString(), 2);
 	}
 	
+	/**
+	 * 应用全部的过滤替换规则
+	 * @param sql - String
+	 * @return String
+	 */
 	public static String filterSql(String sql) {
 		return filterSql(sql, fullPatternSql);
 	}
 
+	/**
+	 * 只应用危险的规则进行过滤替换
+	 * @param sql - String
+	 * @return String
+	 */
 	public static String simpleFilterSql(String sql) {
 		return filterSql(sql, simplePatternSql);
 	}
@@ -94,7 +114,8 @@ public final class SqlInjectHelper {
 					regex = "[^0-9a-zA-Z_](?i)" + key2 + "[^0-9a-zA-Z_]";
 					key = key2.replaceAll("\\s", "");
 				}
-				String replace = (String) mapKeyWord.get(key);
+				String replace = mapKeyWord.get(key);
+				//这里只替换第一个符合条件的字符
 				if (regex != null && replace != null) {
 					sql = sql.replaceFirst(regex, replace);
 				}
@@ -104,12 +125,39 @@ public final class SqlInjectHelper {
 	}
 	
 	public static class SqlKey {
+		
+		/**
+		 * KEY名称
+		 */
 		private String key;
+		
+		/**
+		 * 匹配的正则表达式
+		 */
 		private String pattern;
+		
+		/**
+		 * 要替换的字符
+		 */
 		private String replace;
+		
+		/**
+		 * 是否是危险的SQL
+		 */
 		private boolean isSerious;
+		
+		/**
+		 * KEY的字符数组，没啥用
+		 */
 		private char[] charArray;
 
+		/**
+		 * 构造SqlKey对象
+		 * @param key - 过滤规则名称
+		 * @param replace - 替换后的字符
+		 * @param pattern - 替换匹配的正则字符
+		 * @param isSerious - 是否是危险的
+		 */
 		public SqlKey(String key, String replace, String pattern, boolean isSerious) {
 			setKey(key);
 			setReplace(replace);
